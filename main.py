@@ -35,3 +35,4 @@ elif choice == "6":
 
 else:
     print("Invalid choice! Please enter a number from 1 to 6.")
+    print()
