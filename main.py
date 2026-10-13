@@ -1,4 +1,3 @@
-
 print("===================================")
 print("       QUIZ CROREPATI")
 print("===================================")
@@ -15,24 +14,37 @@ print("6. General Knowledge")
 
 choice = input("\nEnter your choice (1-6): ")
 
-if choice == "1":
-    print("You selected Biology!")
+subjects = {
+    "1": "Biology",
+    "2": "History",
+    "3": "Mathematics",
+    "4": "Science",
+    "5": "Geography",
+    "6": "General Knowledge"
+}
 
-elif choice == "2":
-    print("You selected History!")
-
-elif choice == "3":
-    print("You selected Mathematics!")
-
-elif choice == "4":
-    print("You selected Science!")
-
-elif choice == "5":
-    print("You selected Geography!")
-
-elif choice == "6":
-    print("You selected General Knowledge!")
-
+if choice not in subjects:
+    print("Invalid choice! Please run the program again.")
 else:
-    print("Invalid choice! Please enter a number from 1 to 6.")
-    print()
+    selected_subject = subjects[choice]
+
+    print("\nYou selected:", selected_subject)
+    print("\nLet's start your quiz!")
+
+    print("\nQuestion 1")
+    print("Which planet is known as the Red Planet?")
+
+    print("A. Earth")
+    print("B. Mars")
+    print("C. Jupiter")
+    print("D. Venus")
+
+    answer = input("\nEnter your answer (A/B/C/D): ")
+    answer = answer.strip().upper()
+
+    if answer == "B":
+        print("\nCorrect answer!")
+    elif answer in ["A", "C", "D"]:
+        print("\nSorry! The correct answer is B. Mars.")
+    else:
+        print("\nInvalid answer! Please enter A, B, C, or D.")
