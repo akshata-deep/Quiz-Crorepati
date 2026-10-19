@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Quiz Crorepati</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+    <header class="navbar">
+        <div class="logo">QUIZ <span>CROREPATI</span></div>
+        <div class="tagline">Your Knowledge. Your Journey.</div>
+    </header>
+
+    <main class="container">
+
+        <section class="welcome-card">
+
+            <p class="welcome-label">WELCOME TO THE CHALLENGE</p>
+
+            <h1>How Far Can<br>You Go?</h1>
+
+            <p class="description">
+                Test your knowledge, answer exciting questions,
+                use your lifelines, and climb the prize ladder.
+            </p>
+
+            <h2>Choose Your Subject</h2>
+
+            <div class="subjects">
+
+                <button class="subject-button" data-subject="Biology">
+                    🧬 Biology
+                </button>
+
+                <button class="subject-button" data-subject="History">
+                    📜 History
+                </button>
+
+                <button class="subject-button" data-subject="Mathematics">
+                    🔢 Mathematics
+                </button>
+
+                <button class="subject-button" data-subject="Science">
+                    🔬 Science
+                </button>
+
+                <button class="subject-button" data-subject="Geography">
+                    🌍 Geography
+                </button>
+
+                <button class="subject-button" data-subject="General Knowledge">
+                    🧠 General Knowledge
+                </button>
+
+            </div>
+
+            <p id="selected-subject">
+                Please select a subject to continue.
+            </p>
+
+            <button id="start-button" disabled>
+                START YOUR GAME →
+            </button>
+
+        </section>
+
+        <footer>
+            An independent educational quiz project.
+            All prizes are virtual.
+        </footer>
+
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+</body>
+</html>
