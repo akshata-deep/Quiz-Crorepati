@@ -29,15 +29,12 @@ subjectButtons.forEach(function (button) {
 });
 
 
-startButton.addEventListener("click", function () {
 
+startButton.addEventListener("click", function () {
     if (selectedSubject === null) {
         return;
     }
 
-    alert(
-        "You selected " + selectedSubject +
-        ". The actual quiz will be connected in our next milestone!"
-    );
-
+    window.location.href =
+        "/quiz?subject=" + encodeURIComponent(selectedSubject);
 });

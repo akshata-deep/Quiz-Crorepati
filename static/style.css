@@ -1,3 +1,4 @@
+
 * {
     margin: 0;
     padding: 0;
@@ -158,4 +159,200 @@ footer {
     .tagline {
         text-align: center;
     }
+}
+
+/* Quiz information */
+
+.quiz-info {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 25px 0;
+    color: #d8ad52;
+    font-size: 14px;
+}
+
+.quiz-card h2 {
+    margin: 25px 0;
+    line-height: 1.5;
+}
+
+/* Answer options */
+
+.quiz-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 25px 0;
+}
+
+.answer-option {
+    padding: 17px;
+    text-align: left;
+    color: white;
+    background: #21153e;
+    border: 1px solid #49346e;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+.answer-option:hover,
+.answer-option.selected {
+    border-color: #d8ad52;
+    background: #38244f;
+}
+
+/* Submit and secondary buttons */
+
+#submit-button,
+.secondary-button {
+    width: 100%;
+    padding: 16px;
+    margin-top: 12px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+#submit-button {
+    background: #d8ad52;
+    color: #160d29;
+}
+
+#submit-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.secondary-button {
+    color: white;
+    background: #38244f;
+    border: 1px solid #49346e;
+}
+
+/* Answer feedback */
+
+.feedback {
+    margin-top: 20px;
+    line-height: 1.7;
+}
+
+.feedback.correct {
+    color: #80e6a0;
+}
+
+.feedback.incorrect {
+    color: #ff9a9a;
+}
+
+/* Mobile quiz layout */
+
+@media (max-width: 600px) {
+    .quiz-options {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Hide elements when required */
+
+[hidden] {
+    display: none !important;
+}
+
+/* Play again button */
+
+#play-again-button {
+    width: 100%;
+    padding: 16px;
+    margin-top: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #d8ad52;
+    color: #160d29;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Lifelines */
+
+.lifelines {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.lifeline-button {
+    min-width: 100px;
+    padding: 12px 20px;
+    border: 1px solid #d8ad52;
+    border-radius: 10px;
+    background: #38244f;
+    color: #ffffff;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.lifeline-button:hover:not(:disabled) {
+    background: #49346e;
+}
+
+.lifeline-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Audience Poll results */
+
+#audience-poll-results {
+    margin: 20px 0;
+    padding: 18px;
+    border: 1px solid rgba(216, 173, 82, 0.35);
+    border-radius: 12px;
+    background: rgba(33, 21, 62, 0.8);
+    text-align: left;
+}
+
+#audience-poll-results h2 {
+    margin: 0 0 18px;
+    text-align: center;
+    color: #d8ad52;
+}
+
+.poll-row {
+    display: grid;
+    grid-template-columns: minmax(65px, auto) minmax(50px, 1fr) 42px;
+    align-items: center;
+    gap: 10px;
+    margin: 14px 0;
+}
+
+.poll-label {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.poll-bar-background {
+    height: 12px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #12072b;
+}
+
+.poll-bar {
+    height: 100%;
+    border-radius: 8px;
+    background: #d8ad52;
+    transition: width 0.4s ease;
+}
+
+.poll-percentage {
+    text-align: right;
+    font-size: 13px;
+    font-weight: bold;
+    color: #d8ad52;
 }

@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Crorepati - Quiz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">QUIZ <span>CROREPATI</span></div>
+        <div class="tagline">Your Knowledge. Your Journey.</div>
+    </header>
+
+    <main class="container">
+        <section class="welcome-card quiz-card" id="quiz-screen">
+            <p class="welcome-label">THE QUIZ CHALLENGE</p>
+
+            <h1 id="subject-title">Quiz Time!</h1>
+
+            <div class="quiz-info">
+                <p id="question-counter">Question 1 of 5</p>
+                <p id="score">Score: 0</p>
+            </div>
+
+            <h2 id="question">Loading your question...</h2>
+
+            <div class="lifelines">
+                <button
+                    type="button"
+                    id="fifty-fifty-button"
+                    class="lifeline-button"
+                >
+                    50:50
+                </button>
+
+                <button
+                    type="button"
+                    id="audience-poll-button"
+                    class="lifeline-button"
+                >
+                    AUDIENCE POLL
+                </button>
+            </div>
+
+            <div id="audience-poll-results" hidden>
+                <h2>Audience Poll Results</h2>
+                <div id="audience-poll-bars"></div>
+            </div>
+
+            <div id="options" class="quiz-options"></div>
+
+            <p id="feedback" class="feedback" aria-live="polite"></p>
+
+            <button id="submit-button" disabled>
+                SUBMIT ANSWER
+            </button>
+
+            <button id="next-button" class="secondary-button" hidden>
+                NEXT QUESTION
+            </button>
+
+            <button id="home-button" class="secondary-button">
+                BACK TO SUBJECTS
+            </button>
+        </section>
+
+        <section class="welcome-card" id="result-screen" hidden>
+            <p class="welcome-label">CHALLENGE COMPLETED</p>
+
+            <h1>Your Results</h1>
+
+            <h2 id="final-score"></h2>
+
+            <p id="final-message" class="description"></p>
+
+            <button id="play-again-button">
+                PLAY AGAIN
+            </button>
+
+            <button id="result-home-button" class="secondary-button">
+                BACK TO SUBJECTS
+            </button>
+        </section>
+
+        <footer>
+            An independent educational quiz project.
+            All prizes are virtual.
+        </footer>
+    </main>
+
+    <script>
+        const subject = {{ subject | tojson }};
+        document.getElementById("subject-title").textContent = subject;
+    </script>
+
+    <script src="{{ url_for('static', filename='quiz.js') }}"></script>
+</body>
+</html>
