@@ -6,80 +6,107 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quiz Crorepati - Quiz</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        window.quizSubject = {{ subject | tojson }};
+    </script>
+    <script src="{{ url_for('static', filename='quiz.js') }}" defer></script>
 </head>
-<body>
+<body data-subject="{{ subject }}">
     <header class="navbar">
         <div class="logo">QUIZ <span>CROREPATI</span></div>
         <div class="tagline">Your Knowledge. Your Journey.</div>
     </header>
 
     <main class="container">
-        <section class="welcome-card quiz-card" id="quiz-screen">
+
+        <section class="welcome-card quiz-card" id="quizScreen">
             <p class="welcome-label">THE QUIZ CHALLENGE</p>
 
-            <h1 id="subject-title">Quiz Time!</h1>
+            <h1 id="subjectTitle">Quiz Time!</h1>
 
             <div class="quiz-info">
-                <p id="question-counter">Question 1 of 5</p>
+                <p id="questionCounter">Loading question...</p>
                 <p id="score">Score: 0</p>
             </div>
 
-            <h2 id="question">Loading your question...</h2>
+            <p id="currentPrize">Current prize: ₹0</p>
+            <p id="winnings">Secured winnings: ₹0</p>
+
+            <div class="progress-track">
+                <div id="progressBar" class="progress-fill"></div>
+            </div>
+
+            <h2 id="questionText">Loading your question...</h2>
 
             <div class="lifelines">
-                <button
-                    type="button"
-                    id="fifty-fifty-button"
-                    class="lifeline-button"
-                >
+                <button type="button" id="fiftyFiftyBtn" class="lifeline-button">
                     50:50
                 </button>
 
-                <button
-                    type="button"
-                    id="audience-poll-button"
-                    class="lifeline-button"
-                >
+                <button type="button" id="audiencePollBtn" class="lifeline-button">
                     AUDIENCE POLL
+                </button>
+
+                <button type="button" id="phoneFriendBtn" class="lifeline-button">
+                    PHONE-A-FRIEND
+                </button>
+
+                <button type="button" id="askExpertBtn" class="lifeline-button">
+                    ASK THE EXPERT
                 </button>
             </div>
 
-            <div id="audience-poll-results" hidden>
+            <section id="audiencePollResults" hidden>
                 <h2>Audience Poll Results</h2>
-                <div id="audience-poll-bars"></div>
-            </div>
+                <div id="audiencePollBars"></div>
+            </section>
+
+            <section id="phoneFriendResults" class="friend-card" hidden>
+                <h2>Your Friend's Advice</h2>
+                <p id="friendAnswer"></p>
+                <p id="friendConfidence"></p>
+                <p id="friendReason"></p>
+            </section>
+
+            <section id="expertResults" class="friend-card" hidden>
+                <h2>Ask the Expert</h2>
+                <p id="expertAdvice"></p>
+            </section>
 
             <div id="options" class="quiz-options"></div>
 
             <p id="feedback" class="feedback" aria-live="polite"></p>
 
-            <button id="submit-button" disabled>
+            <button type="button" id="submitAnswerBtn" disabled>
                 SUBMIT ANSWER
             </button>
 
-            <button id="next-button" class="secondary-button" hidden>
+            <button type="button" id="nextQuestionBtn" class="secondary-button" hidden>
                 NEXT QUESTION
             </button>
 
-            <button id="home-button" class="secondary-button">
+            <button type="button" id="quitGameBtn" class="secondary-button">
+                QUIT GAME
+            </button>
+
+            <button type="button" id="homeButton" class="secondary-button">
                 BACK TO SUBJECTS
             </button>
         </section>
 
-        <section class="welcome-card" id="result-screen" hidden>
+        <section class="welcome-card" id="resultScreen" hidden>
             <p class="welcome-label">CHALLENGE COMPLETED</p>
 
             <h1>Your Results</h1>
+            <h2 id="finalScore"></h2>
+            <p id="finalWinnings"></p>
+            <p id="resultMessage" class="description"></p>
 
-            <h2 id="final-score"></h2>
-
-            <p id="final-message" class="description"></p>
-
-            <button id="play-again-button">
+            <button type="button" id="playAgainButton">
                 PLAY AGAIN
             </button>
 
-            <button id="result-home-button" class="secondary-button">
+            <button type="button" id="resultHomeButton" class="secondary-button">
                 BACK TO SUBJECTS
             </button>
         </section>
@@ -89,12 +116,5 @@
             All prizes are virtual.
         </footer>
     </main>
-
-    <script>
-        const subject = {{ subject | tojson }};
-        document.getElementById("subject-title").textContent = subject;
-    </script>
-
-    <script src="{{ url_for('static', filename='quiz.js') }}"></script>
 </body>
 </html>

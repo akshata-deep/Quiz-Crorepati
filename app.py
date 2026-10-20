@@ -1,319 +1,622 @@
+
+import os
+import json
 import random
-from flask import Flask, render_template, request, jsonify
+import secrets
+import sqlite3
+from functools import wraps
+
+from flask import (
+    Flask, render_template, request, jsonify,
+    redirect, url_for, session, flash
+)
+from werkzeug.security import generate_password_hash, check_password_hash
+from question_bank import QUESTION_BANK
+
 
 app = Flask(__name__)
 
-# Temporary sample questions for testing.
-# Later, we will replace these with AI-generated questions.
+app.secret_key = os.environ.get(
+    "QUIZ_CROREPATI_SECRET",
+    "dev-only-change-this-before-deployment"
+)
 
-SAMPLE_QUESTIONS = {
-    "Biology": [
-        {
-            "question": "Which organ pumps blood throughout the human body?",
-            "options": ["Lungs", "Heart", "Kidneys", "Brain"],
-            "answer": "Heart",
-            "explanation": "The heart pumps blood throughout the body."
-        },
-        {
-            "question": "Which part of a plant absorbs water from the soil?",
-            "options": ["Flower", "Leaf", "Root", "Fruit"],
-            "answer": "Root",
-            "explanation": "Roots absorb water and minerals from the soil."
-        },
-        {
-            "question": "Which gas do humans need for cellular respiration?",
-            "options": ["Oxygen", "Nitrogen", "Helium", "Hydrogen"],
-            "answer": "Oxygen",
-            "explanation": "Cells use oxygen during aerobic respiration."
-        },
-        {
-            "question": "What is the basic unit of life?",
-            "options": ["Organ", "Tissue", "Cell", "Bone"],
-            "answer": "Cell",
-            "explanation": "The cell is the basic structural and functional unit of life."
-        },
-        {
-            "question": "Which organ helps humans breathe?",
-            "options": ["Liver", "Lungs", "Stomach", "Kidneys"],
-            "answer": "Lungs",
-            "explanation": "The lungs exchange oxygen and carbon dioxide."
-        }
-    ],
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax"
+)
 
-    "History": [
-        {
-            "question": "Who was the first Mughal emperor of India?",
-            "options": ["Akbar", "Shah Jahan", "Babur", "Humayun"],
-            "answer": "Babur",
-            "explanation": "Babur founded the Mughal Empire in India in 1526."
-        },
-        {
-            "question": "In which year did India gain independence?",
-            "options": ["1942", "1947", "1950", "1935"],
-            "answer": "1947",
-            "explanation": "India became independent on 15 August 1947."
-        },
-        {
-            "question": "Who was known as the Iron Man of India?",
-            "options": [
-                "Jawaharlal Nehru",
-                "Sardar Vallabhbhai Patel",
-                "Subhas Chandra Bose",
-                "Bhagat Singh"
-            ],
-            "answer": "Sardar Vallabhbhai Patel",
-            "explanation": "Sardar Vallabhbhai Patel was widely known as the Iron Man of India."
-        },
-        {
-            "question": "Who built the Taj Mahal?",
-            "options": ["Akbar", "Babur", "Shah Jahan", "Aurangzeb"],
-            "answer": "Shah Jahan",
-            "explanation": "Shah Jahan commissioned the Taj Mahal in memory of Mumtaz Mahal."
-        },
-        {
-            "question": "Who led the Dandi March in 1930?",
-            "options": [
-                "Mahatma Gandhi",
-                "B. R. Ambedkar",
-                "Bhagat Singh",
-                "Bal Gangadhar Tilak"
-            ],
-            "answer": "Mahatma Gandhi",
-            "explanation": "Mahatma Gandhi led the Salt March as part of the independence movement."
-        }
-    ],
+DATABASE = os.path.join(os.path.dirname(__file__), "quiz_crorepati.db")
 
-    "Mathematics": [
-        {
-            "question": "What is 12 × 8?",
-            "options": ["84", "96", "108", "88"],
-            "answer": "96",
-            "explanation": "12 multiplied by 8 equals 96."
-        },
-        {
-            "question": "What is the square of 9?",
-            "options": ["18", "72", "81", "99"],
-            "answer": "81",
-            "explanation": "9 multiplied by 9 equals 81."
-        },
-        {
-            "question": "What is 25% of 200?",
-            "options": ["25", "40", "50", "75"],
-            "answer": "50",
-            "explanation": "25% of 200 is 0.25 multiplied by 200, which equals 50."
-        },
-        {
-            "question": "How many degrees are in a right angle?",
-            "options": ["45", "90", "180", "360"],
-            "answer": "90",
-            "explanation": "A right angle measures exactly 90 degrees."
-        },
-        {
-            "question": "What is the value of 15 + 27?",
-            "options": ["32", "40", "42", "45"],
-            "answer": "42",
-            "explanation": "15 plus 27 equals 42."
-        }
-    ],
+PRIZE_LADDER = [
+    1_000, 2_000, 3_000, 5_000,
+    10_000, 20_000, 40_000, 80_000,
+    160_000, 320_000, 640_000, 1_250_000,
+    2_500_000, 5_000_000, 10_000_000, 70_000_000
+]
 
-    "Science": [
-        {
-            "question": "Which planet is known as the Red Planet?",
-            "options": ["Venus", "Jupiter", "Mars", "Mercury"],
-            "answer": "Mars",
-            "explanation": "Mars looks reddish because of iron oxide on its surface."
-        },
-        {
-            "question": "What is the chemical formula for water?",
-            "options": ["CO2", "H2O", "O2", "NaCl"],
-            "answer": "H2O",
-            "explanation": "A water molecule contains two hydrogen atoms and one oxygen atom."
-        },
-        {
-            "question": "What force pulls objects toward Earth?",
-            "options": ["Friction", "Magnetism", "Gravity", "Electricity"],
-            "answer": "Gravity",
-            "explanation": "Gravity attracts objects with mass toward one another."
-        },
-        {
-            "question": "At normal atmospheric pressure, water boils at what temperature?",
-            "options": ["0°C", "50°C", "100°C", "150°C"],
-            "answer": "100°C",
-            "explanation": "Water boils at 100°C at standard atmospheric pressure."
-        },
-        {
-            "question": "Which star is closest to Earth?",
-            "options": ["Sirius", "The Sun", "Polaris", "Proxima Centauri"],
-            "answer": "The Sun",
-            "explanation": "The Sun is Earth's nearest star."
-        }
-    ],
+SAFETY_MILESTONES = {5, 10}
 
-    "Geography": [
-        {
-            "question": "What is the largest ocean on Earth?",
-            "options": [
-                "Atlantic Ocean",
-                "Indian Ocean",
-                "Arctic Ocean",
-                "Pacific Ocean"
-            ],
-            "answer": "Pacific Ocean",
-            "explanation": "The Pacific Ocean is the largest ocean on Earth."
-        },
-        {
-            "question": "Which is the highest mountain above sea level?",
-            "options": ["K2", "Mount Everest", "Kangchenjunga", "Lhotse"],
-            "answer": "Mount Everest",
-            "explanation": "Mount Everest is the highest mountain above sea level."
-        },
-        {
-            "question": "Which continent is India part of?",
-            "options": ["Europe", "Africa", "Asia", "South America"],
-            "answer": "Asia",
-            "explanation": "India is a country in South Asia."
-        },
-        {
-            "question": "Which imaginary line divides Earth into Northern and Southern Hemispheres?",
-            "options": ["Prime Meridian", "Equator", "Tropic of Cancer", "Arctic Circle"],
-            "answer": "Equator",
-            "explanation": "The Equator divides Earth into the Northern and Southern Hemispheres."
-        },
-        {
-            "question": "What is the capital of Japan?",
-            "options": ["Seoul", "Beijing", "Bangkok", "Tokyo"],
-            "answer": "Tokyo",
-            "explanation": "Tokyo is the capital of Japan."
-        }
-    ],
 
-    "General Knowledge": [
-        {
-            "question": "What is the capital of India?",
-            "options": ["Mumbai", "New Delhi", "Chennai", "Kolkata"],
-            "answer": "New Delhi",
-            "explanation": "New Delhi is the capital of India."
-        },
-        {
-            "question": "What is the national animal of India?",
-            "options": ["Lion", "Elephant", "Bengal tiger", "Leopard"],
-            "answer": "Bengal tiger",
-            "explanation": "The Bengal tiger is India's national animal."
-        },
-        {
-            "question": "Which is the largest planet in our solar system?",
-            "options": ["Earth", "Saturn", "Jupiter", "Neptune"],
-            "answer": "Jupiter",
-            "explanation": "Jupiter is the largest planet in our solar system."
-        },
-        {
-            "question": "How many colours are traditionally listed in a rainbow?",
-            "options": ["Five", "Six", "Seven", "Eight"],
-            "answer": "Seven",
-            "explanation": "A traditional description of a rainbow lists seven colours."
-        },
-        {
-            "question": "Which instrument is used to measure temperature?",
-            "options": ["Barometer", "Thermometer", "Compass", "Anemometer"],
-            "answer": "Thermometer",
-            "explanation": "A thermometer measures temperature."
-        }
-    ]
-}
+# --------------------------------------------------
+# DATABASE
+# --------------------------------------------------
 
+def get_db_connection():
+    connection = sqlite3.connect(DATABASE)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def init_db():
+    with get_db_connection() as connection:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS games (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                questions_json TEXT NOT NULL,
+                current_index INTEGER NOT NULL DEFAULT 0,
+                score INTEGER NOT NULL DEFAULT 0,
+                winnings INTEGER NOT NULL DEFAULT 0,
+                used_lifelines TEXT NOT NULL DEFAULT '[]',
+                status TEXT NOT NULL DEFAULT 'playing',
+                selected_answers TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS game_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                subject TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                winnings INTEGER NOT NULL,
+                result TEXT NOT NULL,
+                played_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id)
+            )
+        """)
+
+
+init_db()
+
+
+def login_required(view_function):
+    @wraps(view_function)
+    def wrapped(*args, **kwargs):
+        if "user_id" not in session:
+            flash("Please sign in or create an account before playing.", "info")
+            return redirect(url_for("login"))
+        return view_function(*args, **kwargs)
+    return wrapped
+
+
+def get_game():
+    game_id = session.get("game_id")
+    user_id = session.get("user_id")
+
+    if not game_id or not user_id:
+        return None
+
+    with get_db_connection() as connection:
+        return connection.execute(
+            "SELECT * FROM games WHERE id = ? AND user_id = ?",
+            (game_id, user_id)
+        ).fetchone()
+
+
+def game_questions(game):
+    return json.loads(game["questions_json"])
+
+
+def used_lifelines(game):
+    return json.loads(game["used_lifelines"])
+
+
+def update_game(game_id, **fields):
+    if not fields:
+        return
+
+    allowed = {
+        "current_index", "score", "winnings", "used_lifelines",
+        "status", "selected_answers"
+    }
+
+    if not set(fields).issubset(allowed):
+        raise ValueError("Invalid game update field.")
+
+    assignments = ", ".join(f"{field} = ?" for field in fields)
+    values = list(fields.values())
+    values.extend([game_id, session["user_id"]])
+
+    with get_db_connection() as connection:
+        connection.execute(
+            f"UPDATE games SET {assignments} WHERE id = ? AND user_id = ?",
+            values
+        )
+
+
+def record_game_result(game, result):
+    with get_db_connection() as connection:
+        connection.execute("""
+            INSERT INTO game_history
+            (user_id, subject, score, winnings, result)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            game["user_id"],
+            game["subject"],
+            game["score"],
+            game["winnings"],
+            result
+        ))
+
+
+def finish_game(game, result, winnings=None):
+    if game["status"] != "playing":
+        return
+
+    if winnings is None:
+        winnings = game["winnings"]
+
+    update_game(
+        game["id"],
+        status=result,
+        winnings=winnings
+    )
+    refreshed = get_game()
+    record_game_result(refreshed, result)
+
+
+def current_question(game):
+    questions = game_questions(game)
+    index = game["current_index"]
+
+    if not 0 <= index < len(questions):
+        return None
+
+    return questions[index]
+
+
+def valid_question_request(data, game):
+    if not game or game["status"] != "playing":
+        return None, (jsonify({"error": "No active game. Start a new quiz."}), 400)
+
+    index = data.get("index")
+
+    if type(index) is not int or index != game["current_index"]:
+        return None, (jsonify({"error": "That is not the current question."}), 400)
+
+    question = current_question(game)
+
+    if not question:
+        return None, (jsonify({"error": "No question is available."}), 400)
+
+    return question, None
+
+
+# --------------------------------------------------
+# HOME PAGE
+# --------------------------------------------------
 
 @app.route("/")
+@login_required
 def home():
-    return render_template("index.html")
+    return render_template("index.html", username=session.get("username"))
 
+
+# --------------------------------------------------
+# REGISTER
+# --------------------------------------------------
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if "user_id" in session:
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if len(username) < 3:
+            flash("Username must contain at least 3 characters.", "error")
+        elif "@" not in email or "." not in email.split("@")[-1]:
+            flash("Please enter a valid email address.", "error")
+        elif len(password) < 8:
+            flash("Password must be at least 8 characters long.", "error")
+        elif password != confirm_password:
+            flash("The passwords do not match.", "error")
+        else:
+            try:
+                with get_db_connection() as connection:
+                    cursor = connection.execute("""
+                        INSERT INTO users (username, email, password_hash)
+                        VALUES (?, ?, ?)
+                    """, (
+                        username,
+                        email,
+                        generate_password_hash(password)
+                    ))
+                    user_id = cursor.lastrowid
+
+                session.clear()
+                session["user_id"] = user_id
+                session["username"] = username
+
+                flash("Your account is ready. Welcome to Quiz Crorepati!", "success")
+                return redirect(url_for("home"))
+
+            except sqlite3.IntegrityError:
+                flash(
+                    "That username or email is already registered. "
+                    "Please sign in or use another one.",
+                    "error"
+                )
+
+    return render_template("auth.html", mode="register")
+
+
+# --------------------------------------------------
+# LOGIN
+# --------------------------------------------------
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if "user_id" in session:
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+
+        with get_db_connection() as connection:
+            user = connection.execute("""
+                SELECT id, username, password_hash
+                FROM users WHERE email = ?
+            """, (email,)).fetchone()
+
+        if user and check_password_hash(user["password_hash"], password):
+            session.clear()
+            session["user_id"] = user["id"]
+            session["username"] = user["username"]
+            return redirect(url_for("home"))
+
+        flash("Email or password is incorrect.", "error")
+
+    return render_template("auth.html", mode="login")
+
+
+# --------------------------------------------------
+# LOGOUT
+# --------------------------------------------------
+
+@app.route("/logout", methods=["POST"])
+@login_required
+def logout():
+    session.clear()
+    flash("You have signed out.", "info")
+    return redirect(url_for("login"))
+
+
+# --------------------------------------------------
+# START A NEW QUIZ
+# --------------------------------------------------
 
 @app.route("/quiz")
+@login_required
 def quiz():
     subject = request.args.get("subject", "")
 
-    if subject not in SAMPLE_QUESTIONS:
+    if subject not in QUESTION_BANK:
         return "Invalid subject. Please return to the homepage.", 400
 
-    return render_template("quiz.html", subject=subject)
+    questions = random.sample(QUESTION_BANK[subject], 16)
+    game_id = secrets.token_urlsafe(24)
 
+    with get_db_connection() as connection:
+        connection.execute("""
+            INSERT INTO games (id, user_id, subject, questions_json)
+            VALUES (?, ?, ?, ?)
+        """, (
+            game_id,
+            session["user_id"],
+            subject,
+            json.dumps(questions)
+        ))
+
+    session["game_id"] = game_id
+
+    return render_template(
+        "quiz.html",
+        subject=subject,
+        total_questions=16,
+        prize_ladder=PRIZE_LADDER
+    )
+
+
+# --------------------------------------------------
+# GET CURRENT QUESTION
+# --------------------------------------------------
 
 @app.route("/get-question", methods=["POST"])
-def get_question():
-    data = request.get_json(silent=True) or {}
-    subject = data.get("subject", "")
-    index = data.get("index")
+@login_required
+def get_question_route():
+    game = get_game()
 
-    if subject not in SAMPLE_QUESTIONS:
-        return jsonify({"error": "Invalid subject."}), 400
+    if not game or game["status"] != "playing":
+        return jsonify({"error": "No active game. Start a new quiz."}), 400
 
-    if type(index) is not int or not 0 <= index < len(SAMPLE_QUESTIONS[subject]):
-        return jsonify({"error": "Invalid question number."}), 400
+    question = current_question(game)
 
-    question = SAMPLE_QUESTIONS[subject][index]
+    if question is None:
+        return jsonify({"error": "No question is available."}), 400
 
-    # The correct answer stays on the server until submission.
     return jsonify({
         "question": question["question"],
         "options": question["options"],
-        "index": index,
-        "total": len(SAMPLE_QUESTIONS[subject])
+        "index": game["current_index"],
+        "total": len(game_questions(game)),
+        "score": game["score"],
+        "winnings": game["winnings"],
+        "prize": PRIZE_LADDER[game["current_index"]],
+        "used_lifelines": used_lifelines(game)
     })
 
 
+# --------------------------------------------------
+# CHECK ANSWER
+# --------------------------------------------------
+
 @app.route("/check-answer", methods=["POST"])
+@login_required
 def check_answer():
     data = request.get_json(silent=True) or {}
-    subject = data.get("subject", "")
-    index = data.get("index")
+    game = get_game()
+
+    question, error = valid_question_request(data, game)
+    if error:
+        return error
+
     selected_answer = data.get("answer", "")
-
-    if subject not in SAMPLE_QUESTIONS:
-        return jsonify({"error": "Invalid subject."}), 400
-
-    if type(index) is not int or not 0 <= index < len(SAMPLE_QUESTIONS[subject]):
-        return jsonify({"error": "Invalid question number."}), 400
-
-    question = SAMPLE_QUESTIONS[subject][index]
 
     if selected_answer not in question["options"]:
         return jsonify({"error": "Invalid answer option."}), 400
 
-    is_correct = selected_answer == question["answer"]
+    answers = json.loads(game["selected_answers"])
 
-    return jsonify({
-        "correct": is_correct,
+    if str(game["current_index"]) in answers:
+        return jsonify({"error": "This question has already been answered."}), 400
+
+    answers[str(game["current_index"])] = selected_answer
+    correct = selected_answer == question["answer"]
+    new_score = game["score"] + (1 if correct else 0)
+
+    response = {
+        "correct": correct,
         "correct_answer": question["answer"],
-        "explanation": question["explanation"]
-    })
+        "explanation": question["explanation"],
+        "score": new_score,
+        "index": game["current_index"]
+    }
+
+    update_game(game["id"], selected_answers=json.dumps(answers), score=new_score)
+
+    if not correct:
+        questions_answered = game["current_index"]
+        secured = 0
+
+        if questions_answered >= 10:
+            secured = PRIZE_LADDER[9]
+        elif questions_answered >= 5:
+            secured = PRIZE_LADDER[4]
+
+        finish_game(get_game(), "lost", secured)
+        response.update({
+            "game_over": True,
+            "winnings": secured,
+            "message": "That answer was incorrect. Your game has ended."
+        })
+        return jsonify(response)
+
+    new_winnings = PRIZE_LADDER[game["current_index"]]
+    update_game(game["id"], winnings=new_winnings)
+
+    if game["current_index"] == len(game_questions(game)) - 1:
+        finish_game(get_game(), "won", new_winnings)
+        response.update({
+            "game_over": True,
+            "winnings": new_winnings,
+            "message": "Congratulations! You completed all 16 questions!"
+        })
+    else:
+        update_game(game["id"], current_index=game["current_index"] + 1)
+        response.update({
+            "game_over": False,
+            "winnings": new_winnings,
+            "next_index": game["current_index"] + 1
+        })
+
+    return jsonify(response)
+
+
+# --------------------------------------------------
+# USE A LIFELINE ONCE PER GAME
+# --------------------------------------------------
+
+def mark_lifeline_used(game, name):
+    used = used_lifelines(game)
+
+    if name in used:
+        return False
+
+    used.append(name)
+    update_game(game["id"], used_lifelines=json.dumps(used))
+    return True
+
 
 @app.route("/use-fifty-fifty", methods=["POST"])
+@login_required
 def use_fifty_fifty():
     data = request.get_json(silent=True) or {}
-    subject = data.get("subject", "")
-    index = data.get("index")
+    game = get_game()
 
-    if subject not in SAMPLE_QUESTIONS:
-        return jsonify({"error": "Invalid subject."}), 400
+    question, error = valid_question_request(data, game)
+    if error:
+        return error
 
-    if type(index) is not int or not 0 <= index < len(SAMPLE_QUESTIONS[subject]):
-        return jsonify({"error": "Invalid question number."}), 400
+    if not mark_lifeline_used(game, "fifty_fifty"):
+        return jsonify({"error": "You have already used 50:50."}), 400
 
-    question = SAMPLE_QUESTIONS[subject][index]
-    wrong_options = [
-        option for option in question["options"]
-        if option != question["answer"]
-    ]
+    wrong = [option for option in question["options"] if option != question["answer"]]
+    removed = random.sample(wrong, min(2, len(wrong)))
+    remaining = [option for option in question["options"] if option not in removed]
 
-    removed_options = random.sample(wrong_options, 2)
-    remaining_options = [
-        option for option in question["options"]
-        if option not in removed_options
-    ]
-
-    return jsonify({"options": remaining_options})
+    return jsonify({
+        "options": remaining,
+        "used_lifelines": used_lifelines(get_game())
+    })
 
 
+@app.route("/use-audience-poll", methods=["POST"])
+@login_required
+def use_audience_poll():
+    data = request.get_json(silent=True) or {}
+    game = get_game()
 
+    question, error = valid_question_request(data, game)
+    if error:
+        return error
+
+    if not mark_lifeline_used(game, "audience_poll"):
+        return jsonify({"error": "You have already used the Audience Poll."}), 400
+
+    options = question["options"]
+    correct_answer = question["answer"]
+
+    # Simulated audience results: weighted toward the correct answer.
+    weights = [random.randint(5, 20) for _ in options]
+    correct_index = options.index(correct_answer)
+    weights[correct_index] = random.randint(35, 65)
+
+    total = sum(weights)
+    percentages = {
+        option: round(weight * 100 / total)
+        for option, weight in zip(options, weights)
+    }
+
+    return jsonify({
+        "poll": percentages,
+        "used_lifelines": used_lifelines(get_game())
+    })
+
+
+@app.route("/use-phone-friend", methods=["POST"])
+@login_required
+def use_phone_friend():
+    data = request.get_json(silent=True) or {}
+    game = get_game()
+
+    question, error = valid_question_request(data, game)
+    if error:
+        return error
+
+    if not mark_lifeline_used(game, "phone_friend"):
+        return jsonify({"error": "You have already used Phone-a-Friend."}), 400
+
+    suggested = random.choice(question["options"])
+    confidence = random.randint(40, 90)
+
+    return jsonify({
+        "answer": suggested,
+        "confidence_percentage": confidence,
+        "reason": (
+            f"Your friend thinks '{suggested}' may be correct, "
+            f"but is only {confidence}% confident. "
+            "This is a simulated lifeline."
+        ),
+        "used_lifelines": used_lifelines(get_game())
+    })
+
+
+@app.route("/use-ask-expert", methods=["POST"])
+@login_required
+def use_ask_expert():
+    data = request.get_json(silent=True) or {}
+    game = get_game()
+
+    question, error = valid_question_request(data, game)
+    if error:
+        return error
+
+    if not mark_lifeline_used(game, "ask_expert"):
+        return jsonify({"error": "You have already used Ask the Expert."}), 400
+
+    # This is a simulated hint, not an AI-generated expert answer.
+    hint = "Read every option carefully and eliminate answers that do not fit the question."
+
+    return jsonify({
+        "hint": hint,
+        "used_lifelines": used_lifelines(get_game())
+    })
+
+
+# --------------------------------------------------
+# QUIT CURRENT GAME
+# --------------------------------------------------
+
+@app.route("/quit-game", methods=["POST"])
+@login_required
+def quit_game():
+    game = get_game()
+
+    if not game or game["status"] != "playing":
+        return jsonify({"error": "There is no active game to quit."}), 400
+
+    finish_game(game, "quit", game["winnings"])
+
+    return jsonify({
+        "message": "You have quit the game.",
+        "winnings": game["winnings"],
+        "score": game["score"]
+    })
+
+
+# --------------------------------------------------
+# GAME HISTORY
+# --------------------------------------------------
+
+@app.route("/game-history")
+@login_required
+def game_history():
+    with get_db_connection() as connection:
+        history = connection.execute("""
+            SELECT subject, score, winnings, result, played_at
+            FROM game_history
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT 50
+        """, (session["user_id"],)).fetchall()
+
+    return render_template("history.html", history=history)
+
+
+# --------------------------------------------------
+# START APPLICATION
+# --------------------------------------------------
 
 if __name__ == "__main__":
     app.run(debug=True)

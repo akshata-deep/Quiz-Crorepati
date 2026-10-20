@@ -1,368 +1,328 @@
 
-const questionElement = document.getElementById("question");
-const optionsElement = document.getElementById("options");
-const submitButton = document.getElementById("submit-button");
-const nextButton = document.getElementById("next-button");
-const feedbackElement = document.getElementById("feedback");
-const scoreElement = document.getElementById("score");
-const counterElement = document.getElementById("question-counter");
-const homeButton = document.getElementById("home-button");
-
-const fiftyFiftyButton = document.getElementById("fifty-fifty-button");
-const audiencePollButton = document.getElementById("audience-poll-button");
-const audiencePollResults = document.getElementById("audience-poll-results");
-const audiencePollBars = document.getElementById("audience-poll-bars");
-
-const quizScreen = document.getElementById("quiz-screen");
-const resultScreen = document.getElementById("result-screen");
-const finalScoreElement = document.getElementById("final-score");
-const finalMessageElement = document.getElementById("final-message");
-const playAgainButton = document.getElementById("play-again-button");
-const resultHomeButton = document.getElementById("result-home-button");
+const subject = window.quizSubject || document.body.dataset.subject || "";
 
 let currentIndex = 0;
-let totalQuestions = 5;
+let totalQuestions = 16;
 let score = 0;
+let currentQuestion = null;
 let selectedAnswer = null;
-let answerSubmitted = false;
+let answered = false;
+let gameOver = false;
+let usedLifelines = new Set();
 
-let fiftyFiftyUsed = false;
-let audiencePollUsed = false;
+const $ = (id) => document.getElementById(id);
+
+async function postJSON(url, data = {}) {
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        throw new Error(result.error || "Something went wrong.");
+    }
+
+    return result;
+}
+
+function showMessage(message, type = "info") {
+    const feedback = $("feedback");
+    if (!feedback) {
+        alert(message);
+        return;
+    }
+
+    feedback.textContent = message;
+    feedback.className = `feedback ${type}`;
+    feedback.hidden = false;
+}
+
+function clearMessage() {
+    const feedback = $("feedback");
+    if (feedback) {
+        feedback.textContent = "";
+        feedback.hidden = true;
+    }
+}
+
+function setText(id, value) {
+    const element = $(id);
+    if (element) element.textContent = value;
+}
+
+function formatRupees(amount) {
+    return "₹" + Number(amount || 0).toLocaleString("en-IN");
+}
+
+function syncLifelines(used) {
+    if (!Array.isArray(used)) return;
+    usedLifelines = new Set(used);
+
+    const buttons = {
+        fifty_fifty: "fiftyFiftyBtn",
+        audience_poll: "audiencePollBtn",
+        phone_friend: "phoneFriendBtn",
+        ask_expert: "askExpertBtn"
+    };
+
+    for (const [name, id] of Object.entries(buttons)) {
+        const button = $(id);
+        if (button) {
+            button.disabled = usedLifelines.has(name) || gameOver;
+        }
+    }
+}
+
+function updateProgress(data) {
+    currentIndex = data.index ?? currentIndex;
+    totalQuestions = data.total ?? totalQuestions;
+    score = data.score ?? score;
+
+    setText("questionCounter", `Question ${currentIndex + 1} of ${totalQuestions}`);
+    setText("score", score);
+    setText("currentPrize", formatRupees(data.prize));
+    setText("winnings", formatRupees(data.winnings));
+
+    const progress = $("progressBar");
+    if (progress) {
+        progress.style.width = `${((currentIndex + 1) / totalQuestions) * 100}%`;
+    }
+
+    syncLifelines(data.used_lifelines);
+}
 
 async function loadQuestion() {
+    if (gameOver) return;
+
+    answered = false;
     selectedAnswer = null;
-    answerSubmitted = false;
+    currentQuestion = null;
+    clearMessage();
 
-    submitButton.disabled = true;
-    submitButton.hidden = false;
-    submitButton.textContent = "SUBMIT ANSWER";
+    const optionsContainer = $("options");
+    if (optionsContainer) optionsContainer.replaceChildren();
 
-    nextButton.hidden = true;
-    nextButton.textContent = "NEXT QUESTION";
-
-    feedbackElement.textContent = "";
-    feedbackElement.className = "feedback";
-    optionsElement.innerHTML = "";
-
-    audiencePollResults.hidden = true;
-    audiencePollBars.innerHTML = "";
-
-    fiftyFiftyButton.disabled = fiftyFiftyUsed;
-    fiftyFiftyButton.textContent = fiftyFiftyUsed
-        ? "50:50 USED"
-        : "50:50";
-
-    audiencePollButton.disabled = audiencePollUsed;
-    audiencePollButton.textContent = audiencePollUsed
-        ? "POLL USED"
-        : "AUDIENCE POLL";
-
-    counterElement.textContent =
-        "Question " + (currentIndex + 1) + " of " + totalQuestions;
-
-    scoreElement.textContent = "Score: " + score;
-    questionElement.textContent = "Loading your question...";
+    const questionElement = $("questionText");
+    if (questionElement) questionElement.textContent = "Loading question...";
 
     try {
-        const response = await fetch("/get-question", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                subject: subject,
-                index: currentIndex
-            })
-        });
+        const data = await postJSON("/get-question", {});
+        currentQuestion = data;
+        updateProgress(data);
 
-        const data = await response.json();
+        if (questionElement) questionElement.textContent = data.question;
 
-        if (!response.ok) {
-            throw new Error(data.error || "Could not load question.");
+        if (optionsContainer) {
+            data.options.forEach((option, index) => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "option-btn";
+                button.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+                button.addEventListener("click", () => selectOption(option, button));
+                optionsContainer.appendChild(button);
+            });
         }
 
-        totalQuestions = data.total;
+        const submitButton = $("submitAnswerBtn");
+        if (submitButton) submitButton.disabled = false;
 
-        counterElement.textContent =
-            "Question " + (currentIndex + 1) + " of " + totalQuestions;
+        const nextButton = $("nextQuestionBtn");
+        if (nextButton) nextButton.hidden = true;
 
-        questionElement.textContent = data.question;
+        const resultScreen = $("resultScreen");
+        if (resultScreen) resultScreen.hidden = true;
 
-        data.options.forEach(function (option, index) {
-            const button = document.createElement("button");
-
-            button.type = "button";
-            button.className = "answer-option";
-            button.textContent =
-                String.fromCharCode(65 + index) + ". " + option;
-
-            button.addEventListener("click", function () {
-                if (answerSubmitted) return;
-
-                selectedAnswer = option;
-
-                document.querySelectorAll(".answer-option").forEach(
-                    function (item) {
-                        item.classList.remove("selected");
-                    }
-                );
-
-                button.classList.add("selected");
-                submitButton.disabled = false;
-            });
-
-            optionsElement.appendChild(button);
-        });
+        const quizScreen = $("quizScreen");
+        if (quizScreen) quizScreen.hidden = false;
     } catch (error) {
-        questionElement.textContent = error.message;
+        if (questionElement) questionElement.textContent = "Unable to load the question.";
+        showMessage(error.message, "error");
     }
 }
 
-// 50:50 lifeline: remove two incorrect options.
-fiftyFiftyButton.addEventListener("click", async function () {
-    if (fiftyFiftyUsed || answerSubmitted) return;
+function selectOption(option, button) {
+    if (answered || gameOver) return;
 
-    fiftyFiftyButton.disabled = true;
+    selectedAnswer = option;
+
+    document.querySelectorAll(".option-btn").forEach((item) => {
+        item.classList.remove("selected");
+    });
+
+    button.classList.add("selected");
+
+    const submitButton = $("submitAnswerBtn");
+    if (submitButton) submitButton.disabled = false;
+}
+
+async function submitAnswer() {
+    if (answered || gameOver || selectedAnswer === null) {
+        if (selectedAnswer === null) showMessage("Please select an answer first.", "error");
+        return;
+    }
+
+    const submitButton = $("submitAnswerBtn");
+    if (submitButton) submitButton.disabled = true;
 
     try {
-        const response = await fetch("/use-fifty-fifty", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                subject: subject,
-                index: currentIndex
-            })
+        const data = await postJSON("/check-answer", {
+            index: currentIndex,
+            answer: selectedAnswer
         });
 
-        const data = await response.json();
+        answered = true;
+        score = data.score ?? score;
+        setText("score", score);
 
-        if (!response.ok) {
-            throw new Error(data.error || "Could not use 50:50.");
-        }
+        document.querySelectorAll(".option-btn").forEach((button) => {
+            const option = button.textContent.replace(/^[A-D]\.\s*/, "");
+            button.disabled = true;
 
-        fiftyFiftyUsed = true;
-
-        const remainingOptions = data.options;
-
-        document.querySelectorAll(".answer-option").forEach(
-            function (button) {
-                const optionText = button.textContent.substring(3);
-
-                if (!remainingOptions.includes(optionText)) {
-                    button.remove();
-                }
+            if (option === data.correct_answer) {
+                button.classList.add("correct");
+            } else if (option === selectedAnswer && !data.correct) {
+                button.classList.add("incorrect");
             }
+        });
+
+        showMessage(
+            `${data.correct ? "Correct!" : "Incorrect."} ${data.explanation || ""}`,
+            data.correct ? "success" : "error"
         );
 
-        if (
-            selectedAnswer !== null &&
-            !remainingOptions.includes(selectedAnswer)
-        ) {
-            selectedAnswer = null;
-            submitButton.disabled = true;
-
-            document.querySelectorAll(".answer-option").forEach(
-                function (button) {
-                    button.classList.remove("selected");
-                }
-            );
+        if (data.game_over) {
+            gameOver = true;
+            showResults(data.message, data.winnings, data.score);
+            return;
         }
 
-        fiftyFiftyButton.textContent = "50:50 USED";
-        fiftyFiftyButton.disabled = true;
+        const nextButton = $("nextQuestionBtn");
+        if (nextButton) nextButton.hidden = false;
 
+        setText("winnings", formatRupees(data.winnings));
     } catch (error) {
-        fiftyFiftyButton.disabled = false;
-        feedbackElement.textContent = error.message;
-        feedbackElement.className = "feedback incorrect";
+        showMessage(error.message, "error");
+        if (submitButton) submitButton.disabled = false;
     }
-});
+}
 
-// Audience Poll: display simulated votes for the current options.
-audiencePollButton.addEventListener("click", function () {
-    if (audiencePollUsed || answerSubmitted) return;
+function showResults(message, winnings, finalScore) {
+    gameOver = true;
 
-    const optionButtons = Array.from(
-        document.querySelectorAll(".answer-option")
-    );
+    const quizScreen = $("quizScreen");
+    if (quizScreen) quizScreen.hidden = true;
 
-    if (optionButtons.length === 0) return;
+    const resultScreen = $("resultScreen");
+    if (resultScreen) resultScreen.hidden = false;
 
-    audiencePollUsed = true;
-    audiencePollButton.disabled = true;
-    audiencePollButton.textContent = "POLL USED";
+    setText("resultMessage", message || "Game over!");
+    setText("finalScore", `${finalScore ?? score} / ${totalQuestions}`);
+    setText("finalWinnings", formatRupees(winnings));
 
-    // Generate random simulated percentages that total 100%.
-    const randomWeights = optionButtons.map(function () {
-        return Math.random() + 0.1;
-    });
+    syncLifelines([]);
+}
 
-    const totalWeight = randomWeights.reduce(function (sum, weight) {
-        return sum + weight;
-    }, 0);
+async function nextQuestion() {
+    if (!answered || gameOver) return;
+    await loadQuestion();
+}
 
-    const percentages = randomWeights.map(function (weight) {
-        return Math.floor((weight / totalWeight) * 100);
-    });
+async function useLifeline(name, endpoint) {
+    if (gameOver || answered || !currentQuestion) return;
 
-    // Adjust the last percentage so the total is exactly 100%.
-    const percentageTotal = percentages.reduce(function (sum, value) {
-        return sum + value;
-    }, 0);
-
-    percentages[percentages.length - 1] += 100 - percentageTotal;
-
-    audiencePollBars.innerHTML = "";
-
-    optionButtons.forEach(function (button, index) {
-        const optionLabel = button.textContent;
-        const percentage = percentages[index];
-
-        const pollRow = document.createElement("div");
-        pollRow.className = "poll-row";
-
-        const label = document.createElement("div");
-        label.className = "poll-label";
-        label.textContent = optionLabel;
-
-        const barBackground = document.createElement("div");
-        barBackground.className = "poll-bar-background";
-
-        const bar = document.createElement("div");
-        bar.className = "poll-bar";
-        bar.style.width = percentage + "%";
-
-        barBackground.appendChild(bar);
-
-        const percentLabel = document.createElement("div");
-        percentLabel.className = "poll-percentage";
-        percentLabel.textContent = percentage + "%";
-
-        pollRow.appendChild(label);
-        pollRow.appendChild(barBackground);
-        pollRow.appendChild(percentLabel);
-
-        audiencePollBars.appendChild(pollRow);
-    });
-
-    audiencePollResults.hidden = false;
-});
-
-// Submit the selected answer.
-submitButton.addEventListener("click", async function () {
-    if (selectedAnswer === null || answerSubmitted) return;
-
-    submitButton.disabled = true;
-    answerSubmitted = true;
-
-    fiftyFiftyButton.disabled = true;
-    audiencePollButton.disabled = true;
+    if (usedLifelines.has(name)) {
+        showMessage("You have already used this lifeline.", "error");
+        return;
+    }
 
     try {
-        const response = await fetch("/check-answer", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                subject: subject,
-                index: currentIndex,
-                answer: selectedAnswer
-            })
-        });
+        const data = await postJSON(endpoint, { index: currentIndex });
+        syncLifelines(data.used_lifelines);
 
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error || "Could not check answer.");
+        if (name === "fifty_fifty") {
+            const optionsContainer = $("options");
+            if (optionsContainer) {
+                const remaining = new Set(data.options);
+                document.querySelectorAll(".option-btn").forEach((button) => {
+                    const option = button.textContent.replace(/^[A-D]\.\s*/, "");
+                    if (!remaining.has(option)) {
+                        button.disabled = true;
+                        button.classList.add("eliminated");
+                    }
+                });
+            }
+            showMessage("50:50 used. Two incorrect options have been removed.");
+        } else if (name === "audience_poll") {
+            const poll = Object.entries(data.poll)
+                .map(([option, percentage]) => `${option}: ${percentage}%`)
+                .join("\n");
+            showMessage(`Simulated Audience Poll:\n${poll}`);
+        } else if (name === "phone_friend") {
+            showMessage(
+                `Your friend suggests: ${data.answer}\n` +
+                `${data.confidence_percentage}% confident.\n${data.reason}`
+            );
+        } else if (name === "ask_expert") {
+            showMessage(`Ask the Expert (simulation): ${data.hint}`);
         }
-
-        if (data.correct) {
-            score++;
-
-            feedbackElement.textContent =
-                "Correct! " + data.explanation;
-
-            feedbackElement.className = "feedback correct";
-        } else {
-            feedbackElement.textContent =
-                "Incorrect. Correct answer: " +
-                data.correct_answer + ". " + data.explanation;
-
-            feedbackElement.className = "feedback incorrect";
-        }
-
-        scoreElement.textContent = "Score: " + score;
-        submitButton.hidden = true;
-
-        nextButton.textContent =
-            currentIndex < totalQuestions - 1
-                ? "NEXT QUESTION"
-                : "VIEW RESULTS";
-
-        nextButton.hidden = false;
-
     } catch (error) {
-        answerSubmitted = false;
-        submitButton.disabled = selectedAnswer === null;
-        fiftyFiftyButton.disabled = fiftyFiftyUsed;
-        audiencePollButton.disabled = audiencePollUsed;
-
-        feedbackElement.textContent = error.message;
-        feedbackElement.className = "feedback incorrect";
-    }
-});
-
-// Move to the next question.
-nextButton.addEventListener("click", function () {
-    if (!answerSubmitted) return;
-
-    if (currentIndex < totalQuestions - 1) {
-        currentIndex++;
-        loadQuestion();
-    } else {
-        showResults();
-    }
-});
-
-// Display the final score.
-function showResults() {
-    quizScreen.hidden = true;
-    resultScreen.hidden = false;
-
-    finalScoreElement.textContent =
-        "You answered " + score + " out of " +
-        totalQuestions + " questions correctly.";
-
-    if (score === totalQuestions) {
-        finalMessageElement.textContent =
-            "Excellent! You answered every question correctly!";
-    } else if (score >= 3) {
-        finalMessageElement.textContent =
-            "Good work! Keep practising to improve your score.";
-    } else {
-        finalMessageElement.textContent =
-            "Keep learning and try again. You can improve!";
+        showMessage(error.message, "error");
     }
 }
 
-// Start a new game.
-function restartQuiz() {
-    window.location.href =
-        "/quiz?subject=" + encodeURIComponent(subject);
+async function quitGame() {
+    if (gameOver) return;
+
+    if (!confirm("Are you sure you want to quit this game?")) return;
+
+    try {
+        const data = await postJSON("/quit-game", {});
+        showResults(data.message, data.winnings, data.score);
+    } catch (error) {
+        showMessage(error.message, "error");
+    }
 }
 
-homeButton.addEventListener("click", function () {
-    window.location.href = "/";
+document.addEventListener("DOMContentLoaded", () => {
+    const submitButton = $("submitAnswerBtn");
+    if (submitButton) submitButton.addEventListener("click", submitAnswer);
+
+    const nextButton = $("nextQuestionBtn");
+    if (nextButton) nextButton.addEventListener("click", nextQuestion);
+
+    const fiftyButton = $("fiftyFiftyBtn");
+    if (fiftyButton) {
+        fiftyButton.addEventListener("click", () =>
+            useLifeline("fifty_fifty", "/use-fifty-fifty")
+        );
+    }
+
+    const audienceButton = $("audiencePollBtn");
+    if (audienceButton) {
+        audienceButton.addEventListener("click", () =>
+            useLifeline("audience_poll", "/use-audience-poll")
+        );
+    }
+
+    const phoneButton = $("phoneFriendBtn");
+    if (phoneButton) {
+        phoneButton.addEventListener("click", () =>
+            useLifeline("phone_friend", "/use-phone-friend")
+        );
+    }
+
+    const expertButton = $("askExpertBtn");
+    if (expertButton) {
+        expertButton.addEventListener("click", () =>
+            useLifeline("ask_expert", "/use-ask-expert")
+        );
+    }
+
+    const quitButton = $("quitGameBtn");
+    if (quitButton) quitButton.addEventListener("click", quitGame);
+
+    loadQuestion();
 });
-
-resultHomeButton.addEventListener("click", function () {
-    window.location.href = "/";
-});
-
-playAgainButton.addEventListener("click", restartQuiz);
-
-// Load the first question.
-loadQuestion();
