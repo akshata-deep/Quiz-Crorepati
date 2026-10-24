@@ -1,0 +1,33 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game History - Quiz Crorepati</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="container">
+        <h1>Quiz Crorepati</h1>
+        <h2>Your Game History</h2>
+
+        {% if history %}
+            <div class="history-list">
+                {% for game in history %}
+                    <div class="history-item">
+                        <p><strong>Subject:</strong> {{ game['subject'] }}</p>
+                        <p><strong>Score:</strong> {{ game['score'] }}</p>
+                        <p><strong>Prize:</strong> ₹{{ game['winnings'] }}</p>
+                        <p><strong>Result:</strong> {{ game['result'] }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p>You haven't completed any games yet.</p>
+        {% endif %}
+
+        <a href="{{ url_for('home') }}">Back to Home</a>
+    </main>
+</body>
+</html>

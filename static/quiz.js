@@ -1,5 +1,5 @@
 
-const subject = window.quizSubject || document.body.dataset.subject || "";
+const $ = (id) => document.getElementById(id);
 
 let currentIndex = 0;
 let totalQuestions = 16;
@@ -9,8 +9,6 @@ let selectedAnswer = null;
 let answered = false;
 let gameOver = false;
 let usedLifelines = new Set();
-
-const $ = (id) => document.getElementById(id);
 
 async function postJSON(url, data = {}) {
     const response = await fetch(url, {
@@ -22,7 +20,7 @@ async function postJSON(url, data = {}) {
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(result.error || "Something went wrong.");
+        throw new Error(result.error || `Request failed (${response.status}).`);
     }
 
     return result;
@@ -30,14 +28,14 @@ async function postJSON(url, data = {}) {
 
 function showMessage(message, type = "info") {
     const feedback = $("feedback");
-    if (!feedback) {
-        alert(message);
-        return;
-    }
 
-    feedback.textContent = message;
-    feedback.className = `feedback ${type}`;
-    feedback.hidden = false;
+    if (feedback) {
+        feedback.textContent = message;
+        feedback.className = `feedback ${type}`;
+        feedback.hidden = false;
+    } else {
+        alert(message);
+    }
 }
 
 function clearMessage() {
@@ -50,7 +48,7 @@ function clearMessage() {
 
 function setText(id, value) {
     const element = $(id);
-    if (element) element.textContent = value;
+    if (element) element.textContent = value ?? "";
 }
 
 function formatRupees(amount) {
@@ -59,19 +57,19 @@ function formatRupees(amount) {
 
 function syncLifelines(used) {
     if (!Array.isArray(used)) return;
+
     usedLifelines = new Set(used);
 
     const buttons = {
         fifty_fifty: "fiftyFiftyBtn",
         audience_poll: "audiencePollBtn",
-        phone_friend: "phoneFriendBtn",
-        ask_expert: "askExpertBtn"
+        phone_friend: "phoneFriendBtn"
     };
 
     for (const [name, id] of Object.entries(buttons)) {
         const button = $(id);
         if (button) {
-            button.disabled = usedLifelines.has(name) || gameOver;
+            button.disabled = usedLifelines.has(name) || gameOver || answered;
         }
     }
 }
@@ -81,14 +79,16 @@ function updateProgress(data) {
     totalQuestions = data.total ?? totalQuestions;
     score = data.score ?? score;
 
-    setText("questionCounter", `Question ${currentIndex + 1} of ${totalQuestions}`);
-    setText("score", score);
-    setText("currentPrize", formatRupees(data.prize));
-    setText("winnings", formatRupees(data.winnings));
+    setText("questionCounter",
+        `Question ${currentIndex + 1} of ${totalQuestions}`);
+    setText("score", `Score: ${score}`);
+    setText("currentPrize", `Current prize: ${formatRupees(data.prize)}`);
+    setText("winnings", `Secured winnings: ${formatRupees(data.winnings)}`);
 
     const progress = $("progressBar");
     if (progress) {
-        progress.style.width = `${((currentIndex + 1) / totalQuestions) * 100}%`;
+        progress.style.width =
+            `${((currentIndex + 1) / totalQuestions) * 100}%`;
     }
 
     syncLifelines(data.used_lifelines);
@@ -105,41 +105,53 @@ async function loadQuestion() {
     const optionsContainer = $("options");
     if (optionsContainer) optionsContainer.replaceChildren();
 
-    const questionElement = $("questionText");
-    if (questionElement) questionElement.textContent = "Loading question...";
+    setText("questionText", "Loading question...");
+
+    const submitButton = $("submitAnswerBtn");
+    if (submitButton) submitButton.disabled = true;
+
+    const nextButton = $("nextQuestionBtn");
+    if (nextButton) nextButton.hidden = true;
 
     try {
         const data = await postJSON("/get-question", {});
+
+        if (!data.question || !Array.isArray(data.options)) {
+            throw new Error("The server did not return a valid question.");
+        }
+
         currentQuestion = data;
         updateProgress(data);
-
-        if (questionElement) questionElement.textContent = data.question;
+        setText("questionText", data.question);
 
         if (optionsContainer) {
             data.options.forEach((option, index) => {
                 const button = document.createElement("button");
                 button.type = "button";
                 button.className = "option-btn";
-                button.textContent = `${String.fromCharCode(65 + index)}. ${option}`;
+                button.textContent =
+                    `${String.fromCharCode(65 + index)}. ${option}`;
+
                 button.addEventListener("click", () => selectOption(option, button));
                 optionsContainer.appendChild(button);
             });
         }
 
-        const submitButton = $("submitAnswerBtn");
-        if (submitButton) submitButton.disabled = false;
-
-        const nextButton = $("nextQuestionBtn");
-        if (nextButton) nextButton.hidden = true;
+        const quizScreen = $("quizScreen");
+        if (quizScreen) quizScreen.hidden = false;
 
         const resultScreen = $("resultScreen");
         if (resultScreen) resultScreen.hidden = true;
 
-        const quizScreen = $("quizScreen");
-        if (quizScreen) quizScreen.hidden = false;
+        syncLifelines(data.used_lifelines);
+        if (submitButton) submitButton.disabled = true;
+
     } catch (error) {
-        if (questionElement) questionElement.textContent = "Unable to load the question.";
-        showMessage(error.message, "error");
+        setText("questionText", "Question could not be loaded.");
+        showMessage(
+            `${error.message} Please return to the subjects page and start a new quiz.`,
+            "error"
+        );
     }
 }
 
@@ -159,8 +171,10 @@ function selectOption(option, button) {
 }
 
 async function submitAnswer() {
-    if (answered || gameOver || selectedAnswer === null) {
-        if (selectedAnswer === null) showMessage("Please select an answer first.", "error");
+    if (answered || gameOver) return;
+
+    if (selectedAnswer === null) {
+        showMessage("Please select an answer first.", "error");
         return;
     }
 
@@ -175,7 +189,7 @@ async function submitAnswer() {
 
         answered = true;
         score = data.score ?? score;
-        setText("score", score);
+        setText("score", `Score: ${score}`);
 
         document.querySelectorAll(".option-btn").forEach((button) => {
             const option = button.textContent.replace(/^[A-D]\.\s*/, "");
@@ -193,8 +207,9 @@ async function submitAnswer() {
             data.correct ? "success" : "error"
         );
 
+        setText("winnings", `Winnings: ${formatRupees(data.winnings)}`);
+
         if (data.game_over) {
-            gameOver = true;
             showResults(data.message, data.winnings, data.score);
             return;
         }
@@ -202,7 +217,8 @@ async function submitAnswer() {
         const nextButton = $("nextQuestionBtn");
         if (nextButton) nextButton.hidden = false;
 
-        setText("winnings", formatRupees(data.winnings));
+        syncLifelines(Array.from(usedLifelines));
+
     } catch (error) {
         showMessage(error.message, "error");
         if (submitButton) submitButton.disabled = false;
@@ -220,9 +236,9 @@ function showResults(message, winnings, finalScore) {
 
     setText("resultMessage", message || "Game over!");
     setText("finalScore", `${finalScore ?? score} / ${totalQuestions}`);
-    setText("finalWinnings", formatRupees(winnings));
+    setText("finalWinnings", `Virtual winnings: ${formatRupees(winnings)}`);
 
-    syncLifelines([]);
+    syncLifelines(Array.from(usedLifelines));
 }
 
 async function nextQuestion() {
@@ -243,31 +259,30 @@ async function useLifeline(name, endpoint) {
         syncLifelines(data.used_lifelines);
 
         if (name === "fifty_fifty") {
-            const optionsContainer = $("options");
-            if (optionsContainer) {
-                const remaining = new Set(data.options);
-                document.querySelectorAll(".option-btn").forEach((button) => {
-                    const option = button.textContent.replace(/^[A-D]\.\s*/, "");
-                    if (!remaining.has(option)) {
-                        button.disabled = true;
-                        button.classList.add("eliminated");
-                    }
-                });
-            }
-            showMessage("50:50 used. Two incorrect options have been removed.");
+            const remaining = new Set(data.options);
+
+            document.querySelectorAll(".option-btn").forEach((button) => {
+                const option = button.textContent.replace(/^[A-D]\.\s*/, "");
+                if (!remaining.has(option)) {
+                    button.disabled = true;
+                    button.classList.add("eliminated");
+                }
+            });
+
+            showMessage("50:50 used. Two incorrect options have been eliminated.");
         } else if (name === "audience_poll") {
-            const poll = Object.entries(data.poll)
+            const poll = Object.entries(data.poll || {})
                 .map(([option, percentage]) => `${option}: ${percentage}%`)
                 .join("\n");
+
             showMessage(`Simulated Audience Poll:\n${poll}`);
         } else if (name === "phone_friend") {
             showMessage(
                 `Your friend suggests: ${data.answer}\n` +
-                `${data.confidence_percentage}% confident.\n${data.reason}`
+                `Confidence: ${data.confidence_percentage}%\n${data.reason}`
             );
-        } else if (name === "ask_expert") {
-            showMessage(`Ask the Expert (simulation): ${data.hint}`);
         }
+
     } catch (error) {
         showMessage(error.message, "error");
     }
@@ -286,43 +301,46 @@ async function quitGame() {
     }
 }
 
+function goHome() {
+    window.location.href = "/";
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-    const submitButton = $("submitAnswerBtn");
-    if (submitButton) submitButton.addEventListener("click", submitAnswer);
-
-    const nextButton = $("nextQuestionBtn");
-    if (nextButton) nextButton.addEventListener("click", nextQuestion);
-
-    const fiftyButton = $("fiftyFiftyBtn");
-    if (fiftyButton) {
-        fiftyButton.addEventListener("click", () =>
-            useLifeline("fifty_fifty", "/use-fifty-fifty")
-        );
+    if ($("submitAnswerBtn")) {
+        $("submitAnswerBtn").addEventListener("click", submitAnswer);
     }
 
-    const audienceButton = $("audiencePollBtn");
-    if (audienceButton) {
-        audienceButton.addEventListener("click", () =>
-            useLifeline("audience_poll", "/use-audience-poll")
-        );
+    if ($("nextQuestionBtn")) {
+        $("nextQuestionBtn").addEventListener("click", nextQuestion);
     }
 
-    const phoneButton = $("phoneFriendBtn");
-    if (phoneButton) {
-        phoneButton.addEventListener("click", () =>
-            useLifeline("phone_friend", "/use-phone-friend")
-        );
+    if ($("fiftyFiftyBtn")) {
+        $("fiftyFiftyBtn").addEventListener("click", () =>
+            useLifeline("fifty_fifty", "/use-fifty-fifty"));
     }
 
-    const expertButton = $("askExpertBtn");
-    if (expertButton) {
-        expertButton.addEventListener("click", () =>
-            useLifeline("ask_expert", "/use-ask-expert")
-        );
+    if ($("audiencePollBtn")) {
+        $("audiencePollBtn").addEventListener("click", () =>
+            useLifeline("audience_poll", "/use-audience-poll"));
     }
 
-    const quitButton = $("quitGameBtn");
-    if (quitButton) quitButton.addEventListener("click", quitGame);
+    if ($("phoneFriendBtn")) {
+        $("phoneFriendBtn").addEventListener("click", () =>
+            useLifeline("phone_friend", "/use-phone-friend"));
+    }
+
+    if ($("quitGameBtn")) {
+        $("quitGameBtn").addEventListener("click", quitGame);
+    }
+
+    if ($("homeButton")) $("homeButton").addEventListener("click", goHome);
+    if ($("resultHomeButton")) {
+        $("resultHomeButton").addEventListener("click", goHome);
+    }
+
+    if ($("playAgainButton")) {
+        $("playAgainButton").addEventListener("click", goHome);
+    }
 
     loadQuestion();
 });

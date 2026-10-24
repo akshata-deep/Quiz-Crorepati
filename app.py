@@ -552,27 +552,6 @@ def use_phone_friend():
     })
 
 
-@app.route("/use-ask-expert", methods=["POST"])
-@login_required
-def use_ask_expert():
-    data = request.get_json(silent=True) or {}
-    game = get_game()
-
-    question, error = valid_question_request(data, game)
-    if error:
-        return error
-
-    if not mark_lifeline_used(game, "ask_expert"):
-        return jsonify({"error": "You have already used Ask the Expert."}), 400
-
-    # This is a simulated hint, not an AI-generated expert answer.
-    hint = "Read every option carefully and eliminate answers that do not fit the question."
-
-    return jsonify({
-        "hint": hint,
-        "used_lifelines": used_lifelines(get_game())
-    })
-
 
 # --------------------------------------------------
 # QUIT CURRENT GAME
