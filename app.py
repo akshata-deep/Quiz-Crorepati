@@ -311,6 +311,10 @@ def logout():
     session.clear()
     flash("You have signed out.", "info")
     return redirect(url_for("login"))
+@app.route("/history")
+@login_required
+def history():
+    return redirect(url_for("game_history"))
 
 
 # --------------------------------------------------
@@ -325,7 +329,16 @@ def quiz():
     if subject not in QUESTION_BANK:
         return "Invalid subject. Please return to the homepage.", 400
 
-    questions = generate_quiz_questions(subject)
+    try:
+        questions = generate_quiz_questions(subject)
+        print("Gemini AI questions generated successfully.")
+
+    except Exception as error:
+        print("Gemini AI unavailable:", type(error).__name__)
+        print("Error details:", str(error))
+        questions = random.sample(QUESTION_BANK[subject], 16)
+        print("Using built-in questions as a fallback.")
+
     game_id = secrets.token_urlsafe(24)
 
     with get_db_connection() as connection:
@@ -417,7 +430,7 @@ def check_answer():
     update_game(game["id"], selected_answers=json.dumps(answers), score=new_score)
 
     if not correct:
-        questions_answered = game["current_index"]
+        questions_answered = game["current_index"] + 1
         secured = 0
 
         if questions_answered >= 10:
@@ -597,6 +610,6 @@ def game_history():
 # --------------------------------------------------
 # START APPLICATION
 # --------------------------------------------------
-
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True)
