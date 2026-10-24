@@ -12,6 +12,7 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from question_bank import QUESTION_BANK
+from gemini_quiz import generate_quiz_questions
 
 
 app = Flask(__name__)
@@ -324,7 +325,7 @@ def quiz():
     if subject not in QUESTION_BANK:
         return "Invalid subject. Please return to the homepage.", 400
 
-    questions = random.sample(QUESTION_BANK[subject], 16)
+    questions = generate_quiz_questions(subject)
     game_id = secrets.token_urlsafe(24)
 
     with get_db_connection() as connection:
