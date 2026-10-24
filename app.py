@@ -216,7 +216,9 @@ def valid_question_request(data, game):
 @login_required
 def home():
     return render_template("index.html", username=session.get("username"))
-
+@app.route("/rules")
+def rules():
+    return render_template("rules.html")
 
 # --------------------------------------------------
 # REGISTER

@@ -4,6 +4,9 @@ Quiz Crorepati is a web-based quiz game inspired by the format of Indian televis
 
 This project is developed as a student project using Python and Flask, with a simple web interface and a database for user accounts and game history.
 
+## Screenshots
+Screenshots of the website pages are available in the `screenshot` folder in this repository.
+
 ## Features
 
 - User registration, login, and logout
@@ -41,6 +44,8 @@ This project is developed as a student project using Python and Flask, with a si
 
 ## Project Structure
 
+## Project Structure
+
 ```text
 Quiz-Crorepati/
 ├── app.py
@@ -50,14 +55,18 @@ Quiz-Crorepati/
 ├── test_gemini.py
 ├── README.md
 ├── step-tracker.md
+├── screenshot/
 ├── templates/
 │   ├── index.html
 │   ├── auth.html
-│   └── history.html
+│   ├── history.html
+│   └── rules.html
 └── static/
     ├── style.css
     └── script.js
 ```
+
+Screenshots of the website pages are available in the `screenshot` folder in this repository.
 
 *Note: The file list may vary depending on the latest version of the project.*
 

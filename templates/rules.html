@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Rules | Quiz Crorepati</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        .rules-page {
+            width: min(900px, 92%);
+            margin: 35px auto;
+            color: #fff;
+        }
+
+        .rules-card {
+            background: rgba(35, 20, 75, 0.95);
+            border: 1px solid #d6b35a;
+            border-radius: 16px;
+            padding: 25px;
+            margin: 20px 0;
+        }
+
+        .rules-page h1,
+        .rules-page h2 {
+            color: #f5d778;
+        }
+
+        .rules-page li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .ladder-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .ladder-table th,
+        .ladder-table td {
+            border: 1px solid #8069a8;
+            padding: 10px;
+            text-align: left;
+        }
+
+        .ladder-table th {
+            color: #f5d778;
+        }
+
+        .safe-line {
+            background: rgba(30, 130, 80, 0.35);
+            font-weight: bold;
+        }
+
+        .virtual-warning {
+            background: #fff0c2;
+            color: #4b3100;
+            border-radius: 12px;
+            padding: 18px;
+            font-weight: bold;
+            line-height: 1.6;
+        }
+
+        .rules-back {
+            display: inline-block;
+            margin: 10px 0 30px;
+            padding: 12px 22px;
+            border-radius: 8px;
+            background: #d6b35a;
+            color: #241344;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            .rules-card {
+                padding: 16px;
+            }
+
+            .ladder-table th,
+            .ladder-table td {
+                padding: 8px 5px;
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="rules-page">
+        <h1>Quiz Crorepati — Game Rules</h1>
+        <p>Read these simple rules before starting your game.</p>
+
+        <section class="rules-card">
+            <h2>1. How to Play</h2>
+            <ul>
+                <li>Choose one of the six available subjects.</li>
+                <li>The game contains 16 multiple-choice questions.</li>
+                <li>Each question has four options. Select the answer you believe is correct.</li>
+                <li>Answer questions in order. You must answer correctly to continue.</li>
+                <li>You can use each available lifeline only once during a game.</li>
+                <li>You may choose to quit the game rather than answer the next question.</li>
+            </ul>
+        </section>
+
+        <section class="rules-card">
+            <h2>2. Question and Prize Ladder</h2>
+            <p>Answer more questions correctly to reach higher virtual prizes.</p>
+
+            <table class="ladder-table">
+                <thead>
+                    <tr>
+                        <th>Question</th>
+                        <th>Virtual Prize</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>1</td><td>₹1,000</td></tr>
+                    <tr><td>2</td><td>₹2,000</td></tr>
+                    <tr><td>3</td><td>₹3,000</td></tr>
+                    <tr><td>4</td><td>₹5,000</td></tr>
+                    <tr class="safe-line"><td>5 — Safe Level 1</td><td>₹10,000</td></tr>
+                    <tr><td>6</td><td>₹20,000</td></tr>
+                    <tr><td>7</td><td>₹40,000</td></tr>
+                    <tr><td>8</td><td>₹80,000</td></tr>
+                    <tr><td>9</td><td>₹1,60,000</td></tr>
+                    <tr class="safe-line"><td>10 — Safe Level 2</td><td>₹3,20,000</td></tr>
+                    <tr><td>11</td><td>₹6,40,000</td></tr>
+                    <tr><td>12</td><td>₹12,50,000</td></tr>
+                    <tr><td>13</td><td>₹25,00,000</td></tr>
+                    <tr><td>14</td><td>₹50,00,000</td></tr>
+                    <tr><td>15</td><td>₹1,00,00,000</td></tr>
+                    <tr><td>16 — Final Question</td><td>₹7,00,00,000</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="rules-card">
+            <h2>3. What Are Safe Levels?</h2>
+            <ul>
+                <li><strong>Before Question 5:</strong> You have not reached the first safe level yet.</li>
+                <li><strong>After answering Question 5 correctly:</strong> You secure the ₹10,000 safe prize.</li>
+                <li><strong>After answering Question 10 correctly:</strong> You secure the ₹3,20,000 safe prize.</li>
+                <li>If you answer a later question incorrectly, your secured prize is based on the highest safe level you have already passed.</li>
+                <li>If you answer incorrectly before reaching the first safe level, you may finish with ₹0.</li>
+                <li>If you answer all 16 questions correctly, you finish with the top virtual prize of ₹7 crore.</li>
+            </ul>
+        </section>
+
+        <section class="rules-card">
+            <h2>4. Lifelines Explained</h2>
+
+            <h3>50:50</h3>
+            <p>Two incorrect options are removed, leaving the correct answer and one incorrect answer. You must still choose an answer.</p>
+
+            <h3>Audience Poll</h3>
+            <p>A simulated audience poll displays how a virtual audience might vote for the options. It is only a guide and is not guaranteed to be correct.</p>
+
+            <h3>Phone-a-Friend</h3>
+            <p>A simulated friend gives you a suggested answer. The suggestion may be wrong, so think carefully before choosing.</p>
+
+            <p><strong>Remember:</strong> Each lifeline can be used only once per game. Lifelines help you decide, but they do not guarantee a correct answer.</p>
+        </section>
+
+        <section class="rules-card">
+            <h2>5. If You Answer Incorrectly</h2>
+            <p>The game ends when you submit an incorrect answer. Your final virtual prize is determined by the safe level you have already secured. The website will show your result and save the game to your history.</p>
+        </section>
+
+        <section class="rules-card">
+            <h2>6. Quitting the Game</h2>
+            <p>If the game provides a quit option, you can leave before answering the next question. Your prize will depend on the game's actual quit rules and the amount already secured.</p>
+        </section>
+
+        <div class="virtual-warning">
+            IMPORTANT: Quiz Crorepati is an educational student project.
+            Every prize amount is virtual and is used only for the game.
+            No real money, cash reward, or financial prize is awarded.
+        </div>
+
+        <a class="rules-back" href="{{ url_for('home') }}">← Back to Home</a>
+    </main>
+</body>
+</html>
+```

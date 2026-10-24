@@ -1515,3 +1515,30 @@ footer {
 .history-container .history-link:hover span {
     transform: translateX(-5px);
 }
+
+/* Game Rules button only */
+.rules-button {
+    display: inline-block;
+    margin: 12px 0;
+    padding: 12px 26px;
+    border: 1px solid #d8b45a;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #392064, #21113f);
+    color: #ffd978;
+    text-decoration: none;
+    font-weight: bold;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.rules-button:hover {
+    background: linear-gradient(135deg, #d8b45a, #f5d98b);
+    color: #160b2b;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(216, 180, 90, 0.3);
+}
+
+.rules-button:active {
+    transform: translateY(0);
+}
