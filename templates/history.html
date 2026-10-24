@@ -27,7 +27,11 @@
             <p>You haven't completed any games yet.</p>
         {% endif %}
 
-        <a href="{{ url_for('home') }}">Back to Home</a>
+        <div class="history-container">
+            <a href="{{ url_for('home') }}" class="history-link">
+                Back to Home
+            </a>
+        </div>
     </main>
 </body>
 </html>

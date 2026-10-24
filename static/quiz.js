@@ -20,7 +20,9 @@ async function postJSON(url, data = {}) {
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-        throw new Error(result.error || `Request failed (${response.status}).`);
+        throw new Error(
+            result.error || `Request failed (${response.status}).`
+        );
     }
 
     return result;
@@ -40,6 +42,7 @@ function showMessage(message, type = "info") {
 
 function clearMessage() {
     const feedback = $("feedback");
+
     if (feedback) {
         feedback.textContent = "";
         feedback.hidden = true;
@@ -68,8 +71,14 @@ function syncLifelines(used) {
 
     for (const [name, id] of Object.entries(buttons)) {
         const button = $(id);
+
         if (button) {
-            button.disabled = usedLifelines.has(name) || gameOver || answered;
+            button.disabled =
+                usedLifelines.has(name) || gameOver || answered;
+            button.classList.toggle(
+                "lifeline-used",
+                usedLifelines.has(name)
+            );
         }
     }
 }
@@ -79,13 +88,16 @@ function updateProgress(data) {
     totalQuestions = data.total ?? totalQuestions;
     score = data.score ?? score;
 
-    setText("questionCounter",
-        `Question ${currentIndex + 1} of ${totalQuestions}`);
+    setText(
+        "questionCounter",
+        `Question ${currentIndex + 1} of ${totalQuestions}`
+    );
     setText("score", `Score: ${score}`);
     setText("currentPrize", `Current prize: ${formatRupees(data.prize)}`);
     setText("winnings", `Secured winnings: ${formatRupees(data.winnings)}`);
 
     const progress = $("progressBar");
+
     if (progress) {
         progress.style.width =
             `${((currentIndex + 1) / totalQuestions) * 100}%`;
@@ -94,21 +106,44 @@ function updateProgress(data) {
     syncLifelines(data.used_lifelines);
 }
 
+function hideLifelineResults() {
+    const pollSection = $("audiencePollResults");
+    const friendSection = $("phoneFriendResults");
+
+    if (pollSection) pollSection.hidden = true;
+    if (friendSection) friendSection.hidden = true;
+
+    const pollBars = $("audiencePollBars");
+    if (pollBars) pollBars.replaceChildren();
+
+    setText("friendAnswer", "");
+    setText("friendConfidence", "");
+    setText("friendReason", "");
+}
+
 async function loadQuestion() {
     if (gameOver) return;
 
     answered = false;
     selectedAnswer = null;
     currentQuestion = null;
+
     clearMessage();
+    hideLifelineResults();
 
     const optionsContainer = $("options");
-    if (optionsContainer) optionsContainer.replaceChildren();
+
+    if (optionsContainer) {
+        optionsContainer.replaceChildren();
+    }
 
     setText("questionText", "Loading question...");
 
     const submitButton = $("submitAnswerBtn");
-    if (submitButton) submitButton.disabled = true;
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.classList.remove("ready-to-submit");
+    }
 
     const nextButton = $("nextQuestionBtn");
     if (nextButton) nextButton.hidden = true;
@@ -127,12 +162,17 @@ async function loadQuestion() {
         if (optionsContainer) {
             data.options.forEach((option, index) => {
                 const button = document.createElement("button");
+
                 button.type = "button";
                 button.className = "option-btn";
+                button.setAttribute("aria-pressed", "false");
                 button.textContent =
                     `${String.fromCharCode(65 + index)}. ${option}`;
 
-                button.addEventListener("click", () => selectOption(option, button));
+                button.addEventListener("click", () => {
+                    selectOption(option, button);
+                });
+
                 optionsContainer.appendChild(button);
             });
         }
@@ -144,10 +184,12 @@ async function loadQuestion() {
         if (resultScreen) resultScreen.hidden = true;
 
         syncLifelines(data.used_lifelines);
+
         if (submitButton) submitButton.disabled = true;
 
     } catch (error) {
         setText("questionText", "Question could not be loaded.");
+
         showMessage(
             `${error.message} Please return to the subjects page and start a new quiz.`,
             "error"
@@ -156,18 +198,24 @@ async function loadQuestion() {
 }
 
 function selectOption(option, button) {
-    if (answered || gameOver) return;
+    if (answered || gameOver || button.disabled) return;
 
     selectedAnswer = option;
 
     document.querySelectorAll(".option-btn").forEach((item) => {
         item.classList.remove("selected");
+        item.setAttribute("aria-pressed", "false");
     });
 
     button.classList.add("selected");
+    button.setAttribute("aria-pressed", "true");
 
     const submitButton = $("submitAnswerBtn");
-    if (submitButton) submitButton.disabled = false;
+
+    if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.classList.add("ready-to-submit");
+    }
 }
 
 async function submitAnswer() {
@@ -179,6 +227,7 @@ async function submitAnswer() {
     }
 
     const submitButton = $("submitAnswerBtn");
+
     if (submitButton) submitButton.disabled = true;
 
     try {
@@ -189,10 +238,12 @@ async function submitAnswer() {
 
         answered = true;
         score = data.score ?? score;
+
         setText("score", `Score: ${score}`);
 
         document.querySelectorAll(".option-btn").forEach((button) => {
             const option = button.textContent.replace(/^[A-D]\.\s*/, "");
+
             button.disabled = true;
 
             if (option === data.correct_answer) {
@@ -221,6 +272,7 @@ async function submitAnswer() {
 
     } catch (error) {
         showMessage(error.message, "error");
+
         if (submitButton) submitButton.disabled = false;
     }
 }
@@ -246,6 +298,97 @@ async function nextQuestion() {
     await loadQuestion();
 }
 
+function renderAudiencePoll(poll) {
+    const section = $("audiencePollResults");
+    const container = $("audiencePollBars");
+
+    if (!section || !container) return;
+
+    container.replaceChildren();
+
+    for (const [option, rawPercentage] of Object.entries(poll || {})) {
+        const parsed = Number(rawPercentage);
+        const percentage = Number.isFinite(parsed)
+            ? Math.min(100, Math.max(0, parsed))
+            : 0;
+
+        const row = document.createElement("div");
+        row.className = "poll-row";
+
+        const label = document.createElement("span");
+        label.className = "poll-label";
+        label.textContent = option;
+
+        const track = document.createElement("div");
+        track.className = "poll-bar-background";
+
+        const bar = document.createElement("div");
+        bar.className = "poll-bar";
+        bar.style.width = `${percentage}%`;
+        bar.setAttribute("role", "progressbar");
+        bar.setAttribute("aria-valuemin", "0");
+        bar.setAttribute("aria-valuemax", "100");
+        bar.setAttribute("aria-valuenow", String(percentage));
+        bar.setAttribute("aria-label", `${option}: ${percentage}%`);
+
+        track.appendChild(bar);
+
+        const value = document.createElement("span");
+        value.className = "poll-percentage";
+        value.textContent = `${percentage}%`;
+
+        row.append(label, track, value);
+        container.appendChild(row);
+    }
+
+    section.hidden = false;
+}
+
+function renderPhoneFriend(data) {
+    const section = $("phoneFriendResults");
+
+    if (!section) return;
+
+    setText("friendAnswer", `Your friend's suggestion: ${data.answer}`);
+
+    const confidence = Number(data.confidence_percentage);
+    const safeConfidence = Number.isFinite(confidence)
+        ? Math.min(100, Math.max(0, confidence))
+        : 0;
+
+    const confidenceText = $("friendConfidence");
+
+    if (confidenceText) {
+        confidenceText.replaceChildren();
+
+        const label = document.createElement("span");
+        label.className = "friend-confidence-label";
+        label.textContent = `Confidence: ${safeConfidence}%`;
+
+        const track = document.createElement("div");
+        track.className = "friend-confidence-track";
+
+        const fill = document.createElement("div");
+        fill.className = "friend-confidence-fill";
+        fill.style.width = `${safeConfidence}%`;
+        fill.setAttribute("role", "progressbar");
+        fill.setAttribute("aria-valuemin", "0");
+        fill.setAttribute("aria-valuemax", "100");
+        fill.setAttribute("aria-valuenow", String(safeConfidence));
+        fill.setAttribute(
+            "aria-label",
+            `Friend confidence: ${safeConfidence}%`
+        );
+
+        track.appendChild(fill);
+        confidenceText.append(label, track);
+    }
+
+    setText("friendReason", data.reason || "Your friend has no extra explanation.");
+
+    section.hidden = false;
+}
+
 async function useLifeline(name, endpoint) {
     if (gameOver || answered || !currentQuestion) return;
 
@@ -254,8 +397,19 @@ async function useLifeline(name, endpoint) {
         return;
     }
 
+    const buttonIds = {
+        fifty_fifty: "fiftyFiftyBtn",
+        audience_poll: "audiencePollBtn",
+        phone_friend: "phoneFriendBtn"
+    };
+
+    const lifelineButton = $(buttonIds[name]);
+
+    if (lifelineButton) lifelineButton.disabled = true;
+
     try {
         const data = await postJSON(endpoint, { index: currentIndex });
+
         syncLifelines(data.used_lifelines);
 
         if (name === "fifty_fifty") {
@@ -263,28 +417,48 @@ async function useLifeline(name, endpoint) {
 
             document.querySelectorAll(".option-btn").forEach((button) => {
                 const option = button.textContent.replace(/^[A-D]\.\s*/, "");
+
                 if (!remaining.has(option)) {
                     button.disabled = true;
                     button.classList.add("eliminated");
+                    button.classList.remove("selected");
+                    button.setAttribute("aria-pressed", "false");
+
+                    if (selectedAnswer === option) {
+                        selectedAnswer = null;
+                    }
                 }
             });
 
-            showMessage("50:50 used. Two incorrect options have been eliminated.");
-        } else if (name === "audience_poll") {
-            const poll = Object.entries(data.poll || {})
-                .map(([option, percentage]) => `${option}: ${percentage}%`)
-                .join("\n");
+            const submitButton = $("submitAnswerBtn");
 
-            showMessage(`Simulated Audience Poll:\n${poll}`);
-        } else if (name === "phone_friend") {
+            if (selectedAnswer === null && submitButton) {
+                submitButton.disabled = true;
+                submitButton.classList.remove("ready-to-submit");
+            }
+
             showMessage(
-                `Your friend suggests: ${data.answer}\n` +
-                `Confidence: ${data.confidence_percentage}%\n${data.reason}`
+                "50:50 used. Two incorrect options have been eliminated."
             );
+
+        } else if (name === "audience_poll") {
+            renderAudiencePoll(data.poll);
+
+            showMessage("Simulated Audience Poll: results are ready.");
+
+        } else if (name === "phone_friend") {
+            renderPhoneFriend(data);
+
+            showMessage("Your friend has shared their suggestion.");
         }
 
     } catch (error) {
         showMessage(error.message, "error");
+
+        if (lifelineButton) {
+            lifelineButton.disabled =
+                usedLifelines.has(name) || answered || gameOver;
+        }
     }
 }
 
@@ -316,24 +490,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if ($("fiftyFiftyBtn")) {
         $("fiftyFiftyBtn").addEventListener("click", () =>
-            useLifeline("fifty_fifty", "/use-fifty-fifty"));
+            useLifeline("fifty_fifty", "/use-fifty-fifty")
+        );
     }
 
     if ($("audiencePollBtn")) {
         $("audiencePollBtn").addEventListener("click", () =>
-            useLifeline("audience_poll", "/use-audience-poll"));
+            useLifeline("audience_poll", "/use-audience-poll")
+        );
     }
 
     if ($("phoneFriendBtn")) {
         $("phoneFriendBtn").addEventListener("click", () =>
-            useLifeline("phone_friend", "/use-phone-friend"));
+            useLifeline("phone_friend", "/use-phone-friend")
+        );
     }
 
     if ($("quitGameBtn")) {
         $("quitGameBtn").addEventListener("click", quitGame);
     }
 
-    if ($("homeButton")) $("homeButton").addEventListener("click", goHome);
+    if ($("homeButton")) {
+        $("homeButton").addEventListener("click", goHome);
+    }
+
     if ($("resultHomeButton")) {
         $("resultHomeButton").addEventListener("click", goHome);
     }
